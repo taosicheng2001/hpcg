@@ -76,7 +76,7 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
   if (yv == xv) {
 
 #ifndef HPCG_NO_OPENMP
-#pragma omp parallel for reduction(+ : sum_vec)
+// #pragma omp parallel for reduction(+ : sum_vec)
 #endif
     for (local_int_t i = 0; i <= n - 8; i += 8) {
       __m512d x0 = _mm512_loadu_pd(&xv[i]);
@@ -86,7 +86,7 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
     local_result = sum_vec[0] + sum_vec[1] + sum_vec[2] + sum_vec[3];
     
 #ifndef HPCG_NO_OPENMP
-#pragma omp parallel for reduction(+ : local_result)
+// #pragma omp parallel for reduction(+ : local_result)
 #endif
     for (local_int_t res_i = n / 8 * 8; res_i < n; res_i++) {
       local_result += xv[res_i] * xv[res_i];
@@ -94,7 +94,7 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
   } else {
 
 #ifndef HPCG_NO_OPENMP
-#pragma omp parallel for reduction(+ : sum_vec)
+// #pragma omp parallel for reduction(+ : sum_vec)
 #endif
     for (local_int_t i = 0; i <= n - 8; i += 8) {
       __m512d x0 = _mm512_loadu_pd(&xv[i]);
@@ -105,7 +105,7 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
     local_result = sum_vec[0] + sum_vec[1] + sum_vec[2] + sum_vec[3];
 
 #ifndef HPCG_NO_OPENMP
-#pragma omp parallel for reduction(+ : local_result)
+// #pragma omp parallel for reduction(+ : local_result)
 #endif
     for (local_int_t res_i = n / 8 * 8; res_i < n; res_i++) {
       local_result += xv[res_i] * yv[res_i];
