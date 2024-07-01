@@ -13,33 +13,51 @@
 //@HEADER
 
 /*!
- @file ComputeSPMV.cpp
+  @file ComputeSPMV.cpp
 
- HPCG routine
- */
+  HPCG routine
+  */
 
 #include "ComputeSPMV.hpp"
 #include "ComputeSPMV_ref.hpp"
+#include <cassert>
+#ifndef HPCG_NO_MPI
+#include "ExchangeHalo.hpp"
+#endif
+#ifdef HPCG_USE_SPMV_ARMPL
+#include "armpl_sparse.h"
+#endif
 
-/*!
-  Routine to compute sparse matrix vector product y = Ax where:
-  Precondition: First call exchange_externals to get off-processor values of x
-
-  This routine calls the reference SpMV implementation by default, but
-  can be replaced by a custom, optimized routine suited for
-  the target system.
-
-  @param[in]  A the known system matrix
-  @param[in]  x the known vector
-  @param[out] y the On exit contains the result: Ax.
-
-  @return returns 0 upon success and non-zero otherwise
-
-  @see ComputeSPMV_ref
-*/
 int ComputeSPMV( const SparseMatrix & A, Vector & x, Vector & y) {
 
-  // This line and the next two lines should be removed and your version of ComputeSPMV should be used.
-  A.isSpmvOptimized = false;
-  return ComputeSPMV_ref(A, x, y);
+	assert(x.localLength >= A.localNumberOfColumns);
+	assert(y.localLength >= A.localNumberOfRows);
+
+#ifndef HPCG_NO_MPI
+	ExchangeHalo(A,x);
+#endif
+	const double * const xv = x.values;
+	double * const yv = y.values;
+	const local_int_t nrow = A.localNumberOfRows;
+
+#ifdef HPCG_USE_SPMV_ARMPL
+	double alpha = 1.0;
+	double beta = 0.0;
+
+	armpl_spmv_exec_d(ARMPL_SPARSE_OPERATION_NOTRANS, alpha, A.armpl_mat, xv, beta, yv);
+#else
+#ifndef HPCG_NO_OPENMP
+#pragma omp parallel for
+#endif
+	for ( local_int_t i = 0; i < nrow; i++ ) {
+		double sum = 0.0;
+		for ( local_int_t j = 0; j < A.nonzerosInRow[i]; j++ ) {
+			local_int_t curCol = A.mtxIndL[i][j];
+			sum += A.matrixValues[i][j] * xv[curCol];
+		}
+		yv[i] = sum;
+	}
+#endif
+
+	return 0;
 }
