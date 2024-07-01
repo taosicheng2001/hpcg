@@ -22,7 +22,6 @@
 #define VECTOR_HPP
 #include <cassert>
 #include <cstdlib>
-#include <vector>
 #include "Geometry.hpp"
 
 struct Vector_STRUCT {
@@ -45,7 +44,7 @@ typedef struct Vector_STRUCT Vector;
  */
 inline void InitializeVector(Vector & v, local_int_t localLength) {
   v.localLength = localLength;
-  posix_memalign((void**)&v.values, 16, sizeof(double)*localLength);
+  v.values = static_cast<double*>(aligned_alloc(32, localLength * sizeof(double)));
   v.optimizationData = 0;
   return;
 }
@@ -98,16 +97,6 @@ inline void CopyVector(const Vector & v, Vector & w) {
   double * wv = w.values;
   for (int i=0; i<localLength; ++i) wv[i] = vv[i];
   return;
-}
-
-inline void CopyAndReorderVector(const Vector & v, Vector & w, const std::vector<local_int_t> & whichNewRowIsOldRow ) {
-	local_int_t localLength = v.localLength;
-	assert(w.localLength >= localLength);
-	double *vv = v.values;
-	double *wv = w.values;
-	for ( local_int_t i = 0; i < localLength; i++ ) {
-		wv[whichNewRowIsOldRow[i]] = vv[i];
-	}
 }
 
 

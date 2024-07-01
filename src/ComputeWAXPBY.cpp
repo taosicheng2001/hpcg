@@ -20,16 +20,8 @@
 
 #include "ComputeWAXPBY.hpp"
 #include "ComputeWAXPBY_ref.hpp"
-#include <cassert>
 
-#ifndef HPCG_NO_OPENMP
-#include <omp.h>
-#endif
-
-#ifdef HPCG_USE_WAXPBY_ARMPL
-#include "armpl.h"
-#endif
-
+#include <immintrin.h>
 
 /*!
   Routine to compute the update of a vector with the sum of two
@@ -49,66 +41,64 @@
 
   @see ComputeWAXPBY_ref
 */
-int ComputeWAXPBY(const local_int_t n, const double alpha, const Vector & x,
-    const double beta, const Vector & y, Vector & w, bool & isOptimized) {
+int ComputeWAXPBY(const local_int_t n, const double alpha, const Vector &x,
+                  const double beta, const Vector &y, Vector &w, bool &isOptimized)
+{
 
-	assert(x.localLength >= n);
-	assert(y.localLength >= n);
-	
-	const double * const xv = x.values;
-	const double * const yv = y.values;
-	double * const wv = w.values;
+  // This line and the next two lines should be removed and your version of ComputeWAXPBY should be used.
+  isOptimized = true;
+  assert(x.localLength >= n); // Test vector lengths
+  assert(y.localLength >= n);
 
-#ifdef HPCG_USE_WAXPBY_ARMPL
-#ifndef HPCG_NO_OEPNMP
-#pragma omp parallel default(shared)
-	{
-		local_int_t nthreads = omp_get_num_threads();
-		local_int_t elemsPerThread = n / nthreads;
-		local_int_t threadID = omp_get_thread_num();
-		local_int_t firstElement = elemsPerThread * threadID;
-		local_int_t lastElement = firstElement + elemsPerThread;
-		if ( elemsPerThread * nthreads != n && threadID == nthreads-1 ) {
-			lastElement = n;
-		}
+  const double *const xv = x.values;
+  const double *const yv = y.values;
+  double *const wv = w.values;
 
-		BLAS_dwaxpby_x(lastElement-firstElement, alpha, &xv[firstElement], 1, beta, &yv[firstElement], 1, &wv[firstElement], 1, blas_prec_double);
-	}
-#else // HPCG_NO_OPENMP
-	BLAS_dwaxpby_x(n, alpha, xv, 1, beta, yv, 1, wv, blas_rec_double);
-#endif // HPCG_NO_OPENMP
+    local_int_t n_vec = n / 4 * 4; // 向量化长度的倍数部分
+    local_int_t i;
 
-#else //HPCG_USE_WAXPBY_ARMPL
-	if ( alpha == 1.0 && beta == 1.0 ) {
-#ifndef HPCG_NO_OPENMP
-#pragma omp parallel for
-#endif //HPCG_NO_OPENMP
-		for ( local_int_t i = 0; i < n; i++ ) {
-			wv[i] = xv[i] + yv[i];
-		}
-	} else if ( alpha == 1.0 ) {
-#ifndef HPCG_NO_OPENMP
-#pragma omp parallel for
-#endif //HPCG_NO_OPENMP
-		for ( local_int_t i = 0; i < n; i++ ) {
-			wv[i] = xv[i] + beta*yv[i];
-		}
-	} else if ( beta == 1.0 ) {
-#ifndef HPCG_NO_OPENMP
-#pragma omp parallel for
-#endif //HPCG_NO_OPENMP
-		for ( local_int_t i = 0; i < n; i++ ) {
-			wv[i] = alpha*xv[i] + yv[i];
-		}
-	} else {
-#ifndef HPCG_NO_OPENMP
-#pragma omp parallel for
-#endif //HPCG_NO_OPENMP
-		for ( local_int_t i = 0; i < n; i++ ) {
-			wv[i] = alpha*xv[i] + beta*yv[i];
-		}
-	}
-#endif // HPCG_USE_WAXPBY_ARMPL
-
-	return 0;
+    if (alpha == 1.0) {
+//#pragma omp parallel for 
+        for (i = 0; i < n_vec; i += 4) {
+            __m256d beta_vec = _mm256_set1_pd(beta);
+            __m256d xv_vec = _mm256_load_pd(xv + i);
+            __m256d yv_vec = _mm256_load_pd(yv + i);
+            //__m256d wv_vec = _mm256_add_pd(xv_vec, _mm256_mul_pd(beta_vec, yv_vec));
+            __m256d wv_vec = _mm256_fmadd_pd(beta_vec, yv_vec, xv_vec);
+            _mm256_storeu_pd(wv + i, wv_vec);
+        }
+//#pragma omp parallel for 
+        for (; i < n; ++i) {
+            wv[i] = xv[i] + beta * yv[i];
+        }
+    } else if (beta == 1.0) {
+//#pragma omp parallel for 
+        for (i = 0; i < n_vec; i += 4) {
+            __m256d alpha_vec = _mm256_set1_pd(alpha);
+            __m256d xv_vec = _mm256_load_pd(xv + i);
+            __m256d yv_vec = _mm256_load_pd(yv + i);
+            //__m256d wv_vec = _mm256_add_pd(yv_vec, _mm256_mul_pd(alpha_vec, xv_vec));
+            __m256d wv_vec = _mm256_fmadd_pd(alpha_vec, xv_vec, yv_vec);
+            _mm256_storeu_pd(wv + i, wv_vec);
+        }
+//#pragma omp parallel for 
+        for (; i < n; ++i) {
+            wv[i] = yv[i] + alpha * xv[i];
+        }
+    } else {
+//#pragma omp parallel for 
+        for (i = 0; i < n_vec; i += 4) {
+            __m256d alpha_vec = _mm256_set1_pd(alpha);
+            __m256d beta_vec = _mm256_set1_pd(beta);
+            __m256d xv_vec = _mm256_load_pd(xv + i);
+            __m256d yv_vec = _mm256_load_pd(yv + i);
+            __m256d wv_vec = _mm256_fmadd_pd(alpha_vec, xv_vec, _mm256_mul_pd(beta_vec, yv_vec)); // w = alpha * x + beta * y
+            _mm256_storeu_pd(wv + i, wv_vec);
+        }
+//#pragma omp parallel for 
+        for (; i < n; ++i) {
+            wv[i] = alpha * xv[i] + beta * yv[i];
+        }
+    }
+  return 0;
 }
