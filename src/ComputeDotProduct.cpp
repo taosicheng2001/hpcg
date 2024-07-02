@@ -99,7 +99,9 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
     for (local_int_t i = 0; i <= n - 8; i += 8) {
       __m512d x0 = _mm512_loadu_pd(&xv[i]);
       __m512d y0 = _mm512_loadu_pd(&yv[i]);
-      sum_vec += _mm512_fmadd_pd(x0, y0, sum_vec);
+
+      sum_vec = _mm512_fmadd_pd(x0, y0, sum_vec);
+
     }
 
     local_result = sum_vec[0] + sum_vec[1] + sum_vec[2] + sum_vec[3];
