@@ -52,7 +52,8 @@ PRIMARY_HEADERS = ../src/Geometry.hpp ../src/SparseMatrix.hpp ../src/Vector.hpp 
                   ../src/MGData.hpp ../src/hpcg.hpp
 
 all: bin/xhpcg
-	export OMP_NUM_THREADS=8 && mpiexec -n 8 ./bin/xhpcg
+	#sbatch ./bin/job.sh
+	export OMP_NUM_THREADS=2 && mpiexec -n 4 ./bin/xhpcg
 	mv ./*.txt ./result/HPCG
 
 bin/xhpcg: src/main.o $(HPCG_DEPS)
