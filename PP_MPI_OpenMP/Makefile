@@ -146,7 +146,7 @@ src/ComputeOptimalShapeXYZ.o: ../src/ComputeOptimalShapeXYZ.cpp ../src/ComputeOp
 	$(CXX) -c $(CXXFLAGS) -I../src $< -o $@
 
 src/ComputeSPMV.o: ../src/ComputeSPMV.cpp ../src/ComputeSPMV.hpp $(PRIMARY_HEADERS)
-	$(CXX) -c $(CXXFLAGS) -I../src $< -o $@
+	$(CXX) -c -march=native $(CXXFLAGS) -I../src $< -o $@
 
 src/ComputeSPMV_ref.o: ../src/ComputeSPMV_ref.cpp ../src/ComputeSPMV_ref.hpp $(PRIMARY_HEADERS)
 	$(CXX) -c $(CXXFLAGS) -I../src $< -o $@
