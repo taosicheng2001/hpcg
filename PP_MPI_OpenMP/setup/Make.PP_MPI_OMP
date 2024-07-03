@@ -107,7 +107,9 @@ HPCG_LIBS     =
 #    *) Build with OpenMP enabled.
 #    *) Not generate debugging output.
 #
-HPCG_OPTS     =
+HPCG_OPTS     = \
+-DHPCG_USE_MULTICOLORING \
+
 #
 # ----------------------------------------------------------------------
 #
@@ -118,8 +120,7 @@ HPCG_DEFS     = $(HPCG_OPTS) $(HPCG_INCLUDES)
 # ----------------------------------------------------------------------
 #
 CXX          = mpicxx
-CXXFLAGS     = $(HPCG_DEFS) -O3 -DHPCG_USE_MULTICOLORING -ffast-math -ftree-vectorize -ftree-vectorizer-verbose=0 -fopenmp
-#CXXFLAGS     = $(HPCG_DEFS) -O3  -ffast-math -ftree-vectorize -ftree-vectorizer-verbose=0 -fopenmp
+CXXFLAGS     = $(HPCG_DEFS) -O3  -ffast-math -ftree-vectorize -ftree-vectorizer-verbose=0 -fopenmp
 #
 LINKER       = $(CXX)
 LINKFLAGS    = $(CXXFLAGS)
