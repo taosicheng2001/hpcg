@@ -29,11 +29,15 @@
 #if __cplusplus < 201103L
 // for C++03
 #include <map>
+#warning Using std::map, it is strongly recommended to use std::unordered_map. For this, use -std=c++11
 typedef std::map< global_int_t, local_int_t > GlobalToLocalMap;
 #else
 // for C++11 or greater
 #include <unordered_map>
 using GlobalToLocalMap = std::unordered_map< global_int_t, local_int_t >;
+#endif
+#ifdef HPCG_USE_SPMV_ARMPL
+#include "armpl_sparse.h"
 #endif
 
 struct SparseMatrix_STRUCT {
@@ -62,7 +66,27 @@ struct SparseMatrix_STRUCT {
   mutable struct SparseMatrix_STRUCT * Ac; // Coarse grid matrix
   mutable MGData * mgData; // Pointer to the coarse level data for this fine matrix
   void * optimizationData;  // pointer that can be used to store implementation-specific data
+  /*
+   * Optimization data
+   */
+  std::vector<local_int_t> whichNewRowIsOldRow;
+  std::vector<local_int_t> whichOldRowIsNewRow;
+  std::vector<local_int_t> firstRowOfBlock;
+  std::vector<local_int_t> nonzerosInChunk;
+  std::vector<std::vector<local_int_t> > tdg;
+  std::vector<local_int_t> numberOfBlocksInColor;
 
+  bool TDG;
+  local_int_t blockSize;
+  local_int_t chunkSize;
+  local_int_t numberOfChunks;
+  local_int_t numberOfColors;
+  local_int_t numberOfBlocks;
+
+#ifdef HPCG_USE_SPMV_ARMPL
+  armpl_spmat_t armpl_mat;
+#endif
+  
 #ifndef HPCG_NO_MPI
   local_int_t numberOfExternalValues; //!< number of entries that are external to this process
   int numberOfSendNeighbors; //!< number of neighboring processes that will be send local data
@@ -94,6 +118,9 @@ inline void InitializeSparseMatrix(SparseMatrix & A, Geometry * geom) {
   A.mtxIndL = 0;
   A.matrixValues = 0;
   A.matrixDiagonal = 0;
+#ifdef HPCG_USE_SPMV_ARMPL
+  A.armpl_mat = 0;
+#endif
 
   // Optimization is ON by default. The code that switches it OFF is in the
   // functions that are meant to be optimized.
@@ -141,6 +168,15 @@ inline void ReplaceMatrixDiagonal(SparseMatrix & A, Vector & diagonal) {
     double * dv = diagonal.values;
     assert(A.localNumberOfRows==diagonal.localLength);
     for (local_int_t i=0; i<A.localNumberOfRows; ++i) *(curDiagA[i]) = dv[i];
+#ifdef HPCG_USE_SPMV_ARMPL
+	// Replace matrix diagonal also on the ArmPL matrix
+	std::vector<armpl_int_t> col_idx(A.localNumberOfRows);
+	for ( armpl_int_t i = 0; i < A.localNumberOfRows; i++ ) {
+		col_idx[i] = i;
+	}
+	std::vector<armpl_int_t> row_idx = col_idx;
+	armpl_spmat_update_d(A.armpl_mat, A.localNumberOfRows, row_idx.data(), col_idx.data(), dv);
+#endif
   return;
 }
 /*!
@@ -150,17 +186,9 @@ inline void ReplaceMatrixDiagonal(SparseMatrix & A, Vector & diagonal) {
  */
 inline void DeleteMatrix(SparseMatrix & A) {
 
-#ifndef HPCG_CONTIGUOUS_ARRAYS
-  for (local_int_t i = 0; i< A.localNumberOfRows; ++i) {
-    delete [] A.matrixValues[i];
-    delete [] A.mtxIndG[i];
-    delete [] A.mtxIndL[i];
-  }
-#else
   delete [] A.matrixValues[0];
   delete [] A.mtxIndG[0];
   delete [] A.mtxIndL[0];
-#endif
   if (A.title)                  delete [] A.title;
   if (A.nonzerosInRow)             delete [] A.nonzerosInRow;
   if (A.mtxIndG) delete [] A.mtxIndG;

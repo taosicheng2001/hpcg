@@ -65,10 +65,12 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
                       bool &isOptimized) {
 
   // This line and the next two lines should be removed and your version of
+
   //
   // ComputeDotProduct should be used.
   // // // isOptimized = false;
   // // // return ComputeDotProduct_ref(n, x, y, result, time_allreduce);
+
 
   assert(x.localLength >= n);
   assert(y.localLength >= n);
@@ -89,10 +91,12 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
       local_result += mul[0] + mul[1] + mul[2] + mul[3] + mul[4] + mul[5] + mul[6] + mul[7];
     }
 
+
     for (local_int_t res_i = n / 8 * 8; res_i < n; res_i++) {
       local_result += xv[res_i] * xv[res_i];
     }
   } else {
+
 #ifndef HPCG_NO_OPENMP
     #pragma omp parallel for reduction (+:local_result)
 #endif
@@ -147,6 +151,7 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
     }
   }
 
+
 #elif defined  HPCG_DDOT_USE_MKL
   local_result = cblas_ddot(n, xv, 1, yv, 1);
 #else // HPCG_DDOT_USE_MKL
@@ -168,7 +173,9 @@ int ComputeDotProduct(const local_int_t n, const Vector &x, const Vector &y,
   double t0 = mytimer();
   double global_result = 0.0;
   MPI_Allreduce(&local_result, &global_result, 1, MPI_DOUBLE, MPI_SUM,
+
       MPI_COMM_WORLD);
+
   result = global_result;
   time_allreduce += mytimer() - t0;
 #else
