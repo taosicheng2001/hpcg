@@ -19,6 +19,7 @@
  */
 
 #include "OptimizeProblem.hpp"
+#include <iostream>
 /*!
   Optimizes the data structures used for CG iteration to increase the
   performance of the benchmark version of the preconditioned CG algorithm.
@@ -78,22 +79,109 @@ int OptimizeProblem(SparseMatrix & A, CGData & data, Vector & b, Vector & x, Vec
     }
   }
 
+
+  /* colors[i] save the color of row "i" */
+  /* counters[i] save the number of rows assigned to color "i" */
   std::vector<local_int_t> counters(totalColors);
   for (local_int_t i=0; i<nrow; ++i)
     counters[colors[i]]++;
 
-  // form in-place prefix scan
-  local_int_t old=counters[0], old0;
-  for (local_int_t i=1; i < totalColors; ++i) {
-    old0 = counters[i];
-    counters[i] = counters[i-1] + old;
-    old = old0;
+  /* colorIndices save the first row with color "i" */
+  /* computationOrder save the order that used in SYMGS */
+  std::vector<local_int_t> colorIndices(totalColors, 0);
+  local_int_t old = 0, old0;
+  for ( int i = 0; i < totalColors; i++ ) {
+  	old0 = counters[i];
+  	counters[i] = counters[i-1] + old;
+  	colorIndices[i] = counters[i];
+  	old = old0;
   }
   counters[0] = 0;
+  colorIndices[0] = 0;
 
-  // translate `colors' into a permutation
-  for (local_int_t i=0; i<nrow; ++i) // for each color `c'
-    colors[i] = counters[colors[i]]++;
+  std::vector<local_int_t> computationOrder(nrow);
+  local_int_t j = 0;
+  for ( int ic = 0; ic < colorIndices.size(); ic++ ) {
+  	for ( local_int_t i = 0; i < nrow; i++ ) {
+  		if ( colors[i] == ic ) {
+  			computationOrder[j] = i;
+  			j++;
+  		}
+  	}
+  }
+
+  /* save the metadata to Matrix */
+  A.optimizationData[0] = std::vector<local_int_t>(computationOrder);
+  A.optimizationData[1] = std::vector<local_int_t>(colorIndices);
+
+
+#ifdef HPCG_USE_REORDER_MULTICOLORING
+
+  /* Here we obtain colors of each row */
+  /* We reorder the row with same color */
+
+  // allocate some structure to temporary allocate reordered structures
+  double **matrixValues = new double*[nrow];
+  local_int_t **mtxIndL = new local_int_t*[nrow];
+  char *nonzerosInRow = new char[nrow];
+  for (local_int_t i = 0; i < nrow; i++){
+	matrixValues[i] = new double[27];
+	mtxIndL[i] = new local_int_t[27];
+  }
+
+  // reorder and translate
+  Vector bReorder;
+  InitializeVector(bReorder, b.localLength);
+
+  local_int_t numberOfReorderedRow = 0;
+  for(local_int_t c = 0; c < totalColors; c++){
+	for(local_int_t i = 0; i < nrow; i++){
+		if(colors[i] == c){ // select the row "i" with color "c"
+			nonzerosInRow[numberOfReorderedRow] = A.nonzerosInRow[i];
+			bReorder.values[numberOfReorderedRow] = b.values[i];
+
+			for(local_int_t j = 0; j < A.nonzerosInRow[i]; j++){
+				local_int_t curOldCol = A.mtxIndL[i][j];
+				matrixValues[numberOfReorderedRow][j] = A.matrixValues[i][j];
+				mtxIndL[numberOfReorderedRow][j] = curOldCol;
+			}
+			numberOfReorderedRow++; // step to next row
+		}
+	}
+  }
+
+  // replace structure
+  for(local_int_t i = 0; i < nrow; i++){
+	A.nonzerosInRow[i] = nonzerosInRow[i];
+	for(local_int_t j = 0; j < A.nonzerosInRow[i]; j++){
+		A.matrixValues[i][j] = matrixValues[i][j];
+		A.mtxIndL[i][j] = mtxIndL[i][j];
+	}
+	for(local_int_t j = A.nonzerosInRow[i]; j < 27; j++){
+		A.matrixValues[i][j] = 0.0;
+		A.mtxIndL[i][j] = 0;
+	}
+	for(local_int_t j = 0; j < b.localLength; j++){
+		b.values[j] = bReorder.values[j];
+	}
+  }
+
+  // regenerate diagonal
+  for(local_int_t i = 0; i < nrow; i++){
+	for(local_int_t j = 0; j < A.nonzerosInRow[i]; j++){
+		local_int_t curCol = A.mtxIndL[i][j];
+		if( i == curCol)
+			A.matrixDiagonal[i] = &A.matrixValues[i][j];
+	for(local_int_t j = A.nonzerosInRow[i]; j < 27; j++){
+			A.matrixValues[i][j] = 0.0;
+			A.mtxIndL[i][j] = 0;
+		}
+	}
+  }
+
+#endif
+
+
 #endif
 
   return 0;
