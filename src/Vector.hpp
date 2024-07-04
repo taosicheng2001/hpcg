@@ -44,7 +44,7 @@ typedef struct Vector_STRUCT Vector;
  */
 inline void InitializeVector(Vector & v, local_int_t localLength) {
   v.localLength = localLength;
-  v.values = new double[localLength];
+  v.values = static_cast<double*>(aligned_alloc(32, localLength * sizeof(double)));
   v.optimizationData = 0;
   return;
 }

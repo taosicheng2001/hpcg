@@ -46,7 +46,9 @@
 
 #include "ComputeSYMGS.hpp"
 #include "ComputeSYMGS_ref.hpp"
+
 #include "ExchangeHalo.hpp"
+
 
 /*!
   Routine to compute one step of symmetric Gauss-Seidel:
@@ -75,6 +77,7 @@
   @see ComputeSYMGS_ref
   */
 int ComputeSYMGS( const SparseMatrix & A, const Vector & r, Vector & x) {
+
 
 	// Make sure x contain space for halo values
 	assert( x.localLength == A.localNumberOfColumns);
@@ -144,5 +147,6 @@ int ComputeSYMGS( const SparseMatrix & A, const Vector & r, Vector & x) {
 #endif
 
 	return 0;
+
 }
 

@@ -26,6 +26,7 @@
 #include "ComputeRestriction_ref.hpp"
 #include "ComputeProlongation_ref.hpp"
 
+
 /*!
   @param[in] A the known system matrix
   @param[in] r the input vector
@@ -59,4 +60,5 @@ int ComputeMG(const SparseMatrix  & A, const Vector & r, Vector & x) {
     if (ierr!=0) return ierr;
   }
   return 0;
+
 }

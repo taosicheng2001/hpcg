@@ -76,6 +76,20 @@ INCdir       = $(TOPdir)/src
 BINdir       = $(TOPdir)/bin
 #
 # ----------------------------------------------------------------------
+# - Math Kernal library (MKL) ------------------------------------------
+# ----------------------------------------------------------------------
+# MKLinc tells the  C  compiler where to find the Math Kernal library
+# header files,  MKLlib  is defined  to be the name of  the library to be
+# used. The variable MKLdir is only used for defining MKL and MKLlib.
+#
+MKLdir       = $(MKLROOT)
+MKLinc       = $(MKLdir)/include
+MKLlib       = $(MKLdir)/lib
+MKL_INCLUDES = #-m64 -I"${MKLinc}"
+MKL_LIBS     = #-m64 -L${MKLlib} -lmkl_scalapack_lp64 -Wl,--no-as-needed -lmkl_cdft_core -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lmkl_blacs_intelmpi_lp64 -liomp5 -lpthread -lm -ldl
+#
+#
+# ----------------------------------------------------------------------
 # - Message Passing library (MPI) --------------------------------------
 # ----------------------------------------------------------------------
 # MPinc tells the  C  compiler where to find the Message Passing library
@@ -91,16 +105,19 @@ MPlib        =
 # - HPCG includes / libraries / specifics -------------------------------
 # ----------------------------------------------------------------------
 #
-HPCG_INCLUDES = -I$(INCdir) -I$(INCdir)/$(arch) $(MPinc)
-HPCG_LIBS     =
+HPCG_INCLUDES = -I$(INCdir) -I$(INCdir)/$(arch) $(MPinc) $(MKL_INCLUDES)
+HPCG_LIBS     = $(MKL_LIBS)
 #
 # - Compile time options -----------------------------------------------
 #
-# -DHPCG_NO_MPI	        Define to disable MPI
-# -DHPCG_NO_OPENMP	Define to disable OPENMP
-# -DHPCG_CONTIGUOUS_ARRAYS Define to have sparse matrix arrays long and contiguous
-# -DHPCG_DEBUG       	Define to enable debugging output
-# -DHPCG_DETAILED_DEBUG Define to enable very detailed debugging output
+# -DHPCG_NO_MPI	            Define to disable MPI
+# -DHPCG_NO_OPENMP	        Define to disable OPENMP
+# -DHPCG_CONTIGUOUS_ARRAYS  Define to have sparse matrix arrays long and contiguous
+# -DHPCG_DEBUG       	      Define to enable debugging output
+# -DHPCG_DETAILED_DEBUG     Define to enable very detailed debugging output
+# -DHPCG_USE_AVX2     Define to use AVX intrinsics in the main kernels
+# -DHPCG_USE_AVX512   Define to use AVX52 intrinsics in the main kernels
+# -DHPCG_DDOT_USE_MKL Define to use Math Kernal library calls in the ComputeDotProduct
 #
 # By default HPCG will:
 #    *) Build with MPI enabled.
@@ -121,6 +138,7 @@ HPCG_DEFS     = $(HPCG_OPTS) $(HPCG_INCLUDES)
 #
 CXX          = mpicxx
 CXXFLAGS     = $(HPCG_DEFS) -O3  -ffast-math -ftree-vectorize -ftree-vectorizer-verbose=0 -fopenmp
+
 #
 LINKER       = $(CXX)
 LINKFLAGS    = $(CXXFLAGS)

@@ -20,11 +20,13 @@
 
  HPCG routine
  */
+
 #include <mpi.h>
 #include <immintrin.h>
 #include "ComputeSPMV.hpp"
 
 #include <ctime>
+
 #ifndef HPCG_NO_MPI
 #include "ExchangeHalo.hpp"
 #endif
@@ -61,6 +63,7 @@ inline double _mm256_reduce_add_pd(__m256d vec) {
 
   @see ComputeSPMV
 */
+
 int ComputeSPMV(const SparseMatrix &A, Vector &x, Vector &y) {
     assert(x.localLength >= A.localNumberOfColumns); // Test vector lengths
     assert(y.localLength >= A.localNumberOfRows);
