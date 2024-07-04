@@ -90,7 +90,7 @@ int OptimizeProblem(SparseMatrix & A, CGData & data, Vector & b, Vector & x, Vec
   /* computationOrder save the order that used in SYMGS */
   std::vector<local_int_t> colorIndices(totalColors, 0);
   local_int_t old = 0, old0;
-  for ( int i = 0; i < totalColors; i++ ) {
+  for ( int i = 1; i < totalColors; i++ ) {
   	old0 = counters[i];
   	counters[i] = counters[i-1] + old;
   	colorIndices[i] = counters[i];
