@@ -74,9 +74,10 @@
 
   @see ComputeSYMGS_ref
   */
+
 int ComputeSYMGS( const SparseMatrix & A, const Vector & r, Vector & x) {
 
-	// Make sure x contain space for halo values
+#if HPCG_USE_MULTICOLORING
 	assert( x.localLength == A.localNumberOfColumns);
 
 #ifndef HPCG_NO_MPI
@@ -88,7 +89,6 @@ int ComputeSYMGS( const SparseMatrix & A, const Vector & r, Vector & x) {
 	const double *const rv = r.values;
 	double *const xv = x.values;
 
-#if HPCG_USE_MULTICOLORING
 	// Grab the coloring information
 	std::vector<local_int_t> computationOrder(A.optimizationData[0]);
 	std::vector<local_int_t> colorIndices(A.optimizationData[1]);
@@ -139,7 +139,63 @@ int ComputeSYMGS( const SparseMatrix & A, const Vector & r, Vector & x) {
 			xv[computationOrder[i]] = sum / currentDiagonal;
 		}
 	}
-#else
+#elif HPCG_USE_REORDER_MULTICOLORING
+	// assert( A.TDG );
+	assert( x.localLength == A.localNumberOfColumns);
+#ifndef HPCG_NO_MPI
+	ExchangeHalo(A,x);
+#endif
+
+	const double * const rv = r.values;
+	double * const xv = x.values;
+	double **matrixDiagonal = A.matrixDiagonal;
+
+	// FORWARD
+	for ( local_int_t l = 0; l < A.tdg.size(); l++ ) {
+#ifndef HPCG_NO_OPENMP
+#pragma omp parallel for
+#endif
+		for ( local_int_t i = 0; i < A.tdg[l].size(); i++ ) {
+			local_int_t row = A.tdg[l][i];
+			const double * const currentValues = A.matrixValues[row];
+			const local_int_t * const currentColIndices = A.mtxIndL[row];
+			const int currentNumberOfNonzeros = A.nonzerosInRow[row];
+			const double currentDiagonal = matrixDiagonal[row][0];
+			double sum = rv[row];
+
+			for ( local_int_t j = 0; j < currentNumberOfNonzeros; j++ ) {
+				local_int_t curCol = currentColIndices[j];
+				sum -= currentValues[j] * xv[curCol];
+			}
+			sum += xv[row] * currentDiagonal;
+			xv[row] = sum / currentDiagonal;
+		}
+	}
+
+	// BACKWARD
+	for ( local_int_t l = A.tdg.size()-1; l >= 0; l-- ) {
+#ifndef HPCG_NO_OPENMP
+#pragma omp parallel for
+#endif
+		for ( local_int_t i = A.tdg[l].size()-1; i >= 0; i-- ) {
+			local_int_t row = A.tdg[l][i];
+			const double * const currentValues = A.matrixValues[row];
+			const local_int_t * const currentColIndices = A.mtxIndL[row];
+			const int currentNumberOfNonzeros = A.nonzerosInRow[row];
+			const double currentDiagonal = matrixDiagonal[row][0];
+			double sum = rv[row];
+
+			for ( local_int_t j = currentNumberOfNonzeros-1; j >= 0; j-- ) {
+				local_int_t curCol = currentColIndices[j];
+				sum -= currentValues[j] * xv[curCol];
+			}
+			sum += xv[row] * currentDiagonal;
+			xv[row] = sum / currentDiagonal;
+		}
+	}
+
+	return 0;
+#else	
 	return ComputeSYMGS_ref(A, r, x);
 #endif
 

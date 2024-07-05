@@ -101,6 +101,8 @@ HPCG_LIBS     =
 # -DHPCG_CONTIGUOUS_ARRAYS Define to have sparse matrix arrays long and contiguous
 # -DHPCG_DEBUG       	Define to enable debugging output
 # -DHPCG_DETAILED_DEBUG Define to enable very detailed debugging output
+# -DHPCG_USE_MULTICOLORING Define to Multicoloring
+# -DHPCG_USE_REORDER_MULTICOLORING Define to Reorder Multicoloring
 #
 # By default HPCG will:
 #    *) Build with MPI enabled.
@@ -108,7 +110,8 @@ HPCG_LIBS     =
 #    *) Not generate debugging output.
 #
 HPCG_OPTS     = \
--DHPCG_USE_MULTICOLORING \
+-DHPCG_USE_REORDER_MULTICOLORING \
+#-DHPCG_USE_MULTICOLORING \
 
 #
 # ----------------------------------------------------------------------
